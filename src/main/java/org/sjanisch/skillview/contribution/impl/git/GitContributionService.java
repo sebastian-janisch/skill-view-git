@@ -53,6 +53,7 @@ import org.sjanisch.skillview.contribution.api.ContributionId;
 import org.sjanisch.skillview.contribution.api.ContributionRetrievalException;
 import org.sjanisch.skillview.contribution.api.ContributionService;
 import org.sjanisch.skillview.contribution.api.Contributor;
+import org.sjanisch.skillview.contribution.api.Project;
 import org.sjanisch.skillview.contribution.impl.DefaultContribution;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,15 +71,20 @@ public class GitContributionService implements ContributionService {
 	private static final String EMPTY = "0000000000000000000000000000000000000000";
 
 	private Supplier<Repository> repositorySupplier;
+	private Project project;
 
 	/**
 	 * 
 	 * @param repositorySupplier
 	 *            supplier for fresh repository instances. Must not be
 	 *            {@code null}.
+	 * @param project
+	 *            the project that this repository relates to. Must not be
+	 *            {@code null}.
 	 */
-	public GitContributionService(Supplier<Repository> repositorySupplier) {
+	public GitContributionService(Supplier<Repository> repositorySupplier, Project project) {
 		this.repositorySupplier = Objects.requireNonNull(repositorySupplier, "repositorySupplier");
+		this.project = Objects.requireNonNull(project, "project");
 	}
 
 	@Override
@@ -90,7 +96,7 @@ public class GitContributionService implements ContributionService {
 		Runnable closeRepository = () -> repository.close();
 		try (Git git = new Git(repository)) {
 			try {
-				Helper helper = new Helper(repository, git, startExclusive, endInclusive);
+				Helper helper = new Helper(repository, project, git, startExclusive, endInclusive);
 				Stream<Contribution> contributions = helper.readContributions().onClose(closeRepository);
 				return contributions;
 			} catch (Exception e) {
@@ -104,12 +110,14 @@ public class GitContributionService implements ContributionService {
 	private static class Helper {
 
 		private final Repository repository;
+		private final Project project;
 		private final Git git;
 		private final Instant startExclusive;
 		private final Instant endInclusive;
 
-		public Helper(Repository repository, Git git, Instant startExclusive, Instant endInclusive) {
+		public Helper(Repository repository, Project project, Git git, Instant startExclusive, Instant endInclusive) {
 			this.repository = repository;
+			this.project = project;
 			this.git = git;
 			this.startExclusive = startExclusive;
 			this.endInclusive = endInclusive;
@@ -209,7 +217,8 @@ public class GitContributionService implements ContributionService {
 				trace(() -> String.format("Reading contribution from user %s at %s of %s", contributor.getName(),
 						commitTime, path));
 
-				return new DefaultContribution(id, contributor, commitTime, message, path, newContent, oldContent);
+				return new DefaultContribution(id, project, contributor, commitTime, message, path, newContent,
+						oldContent);
 			} catch (Exception e) {
 				throw new ContributionRetrievalException("Error reading diff entry", e);
 			}

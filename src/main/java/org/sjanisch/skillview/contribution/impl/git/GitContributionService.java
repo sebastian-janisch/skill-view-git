@@ -27,6 +27,7 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -154,6 +155,8 @@ public class GitContributionService implements ContributionService {
 
 				info(() -> String.format("Found %s commits in branch %s", commitsList.size(), branch.toString()));
 
+				AtomicInteger finishedCommits = new AtomicInteger(0);
+
 				Stream<Contribution> result = IntStream.range(0, commitsList.size() - 1).mapToObj(i -> {
 					RevCommit oldCommit = commitsList.get(i + 1);
 					RevCommit newCommit = commitsList.get(i);
@@ -163,6 +166,8 @@ public class GitContributionService implements ContributionService {
 
 					Stream<Contribution> contributions = readContributionsFromCommit(newCommit, newTreeParser,
 							oldTreeParser);
+
+					logCommitProgress(commitsList.size(), finishedCommits.incrementAndGet());
 
 					return contributions;
 				}).flatMap(Function.identity());
@@ -186,7 +191,7 @@ public class GitContributionService implements ContributionService {
 
 				Stream<Contribution> contributions = diff.stream().map(diffEntry -> toContribution(diffEntry, commit));
 
-				return contributions;
+				return contributions.filter(Objects::nonNull);
 			} catch (GitAPIException e) {
 				String msg = "Could not retrieve contributions for commit " + commit.toString();
 				throw new ContributionRetrievalException(msg, e);
@@ -222,7 +227,8 @@ public class GitContributionService implements ContributionService {
 				return new DefaultContribution(id, project, contributor, commitTime, message, path, newContent,
 						oldContent);
 			} catch (Exception e) {
-				throw new ContributionRetrievalException("Error reading diff entry", e);
+				log.error("Error reading diff entry", e);
+				return null;
 			}
 
 		}
@@ -248,24 +254,32 @@ public class GitContributionService implements ContributionService {
 			}
 		}
 
-	}
-
-	private static void info(Supplier<String> info) {
-		if (log.isInfoEnabled()) {
-			log.info(info.get());
+		private void info(Supplier<String> info) {
+			if (log.isInfoEnabled()) {
+				log.info(String.format("Project %s: %s", project.getValue(), info.get()));
+			}
 		}
-	}
 
-	private static void debug(Supplier<String> debug) {
-		if (log.isDebugEnabled()) {
-			log.debug(debug.get());
+		private void debug(Supplier<String> debug) {
+			if (log.isDebugEnabled()) {
+				log.debug(String.format("Project %s: %s", project.getValue(), debug.get()));
+			}
 		}
-	}
 
-	private static void trace(Supplier<String> trace) {
-		if (log.isTraceEnabled()) {
-			log.trace(trace.get());
+		private void trace(Supplier<String> trace) {
+			if (log.isTraceEnabled()) {
+				log.trace(String.format("Project %s: %s", project.getValue(), trace.get()));
+			}
 		}
+
+		private void logCommitProgress(int totalCommits, double finishedCommits) {
+			if (finishedCommits == totalCommits || finishedCommits % 1000 == 0) {
+				double percentage = finishedCommits / (totalCommits + .0);
+				info(() -> String.format("Finished %s out of %s commits - (%.2f%%)", finishedCommits, totalCommits,
+						percentage * 100));
+			}
+		}
+
 	}
 
 }

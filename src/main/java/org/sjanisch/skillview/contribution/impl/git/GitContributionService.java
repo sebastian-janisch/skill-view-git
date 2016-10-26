@@ -182,6 +182,8 @@ public class GitContributionService implements ContributionService {
 
 				List<DiffEntry> diff = git.diff().setOldTree(oldTreeParser).setNewTree(newTreeParser).call();
 
+				debug(() -> String.format("Found %s diff entries for commit %s", diff.size(), commit.name()));
+
 				Stream<Contribution> contributions = diff.stream().map(diffEntry -> toContribution(diffEntry, commit));
 
 				return contributions;

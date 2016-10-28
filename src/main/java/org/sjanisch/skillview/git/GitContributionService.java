@@ -51,11 +51,13 @@ import org.eclipse.jgit.treewalk.AbstractTreeIterator;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.sjanisch.skillview.core.contribution.api.Contribution;
 import org.sjanisch.skillview.core.contribution.api.ContributionId;
+import org.sjanisch.skillview.core.contribution.api.ContributionItem;
 import org.sjanisch.skillview.core.contribution.api.ContributionRetrievalException;
 import org.sjanisch.skillview.core.contribution.api.ContributionService;
 import org.sjanisch.skillview.core.contribution.api.Contributor;
 import org.sjanisch.skillview.core.contribution.api.Project;
 import org.sjanisch.skillview.core.contribution.impl.DefaultContribution;
+import org.sjanisch.skillview.core.contribution.impl.DefaultContribution.Builder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -164,13 +166,13 @@ public class GitContributionService implements ContributionService {
 					AbstractTreeIterator oldTreeParser = prepareTreeParser(repository, oldCommit.getName());
 					AbstractTreeIterator newTreeParser = prepareTreeParser(repository, newCommit.getName());
 
-					Stream<Contribution> contributions = readContributionsFromCommit(newCommit, newTreeParser,
+					Contribution contribution = readContributionFromCommit(newCommit, newTreeParser,
 							oldTreeParser);
 
 					logCommitProgress(commitsList.size(), finishedCommits.incrementAndGet());
 
-					return contributions;
-				}).flatMap(Function.identity());
+					return contribution;
+				});
 
 				return result;
 			} catch (Exception e) {
@@ -180,7 +182,7 @@ public class GitContributionService implements ContributionService {
 
 		}
 
-		private Stream<Contribution> readContributionsFromCommit(RevCommit commit, AbstractTreeIterator newTreeParser,
+		private Contribution readContributionFromCommit(RevCommit commit, AbstractTreeIterator newTreeParser,
 				AbstractTreeIterator oldTreeParser) {
 			try {
 				debug(() -> String.format("Reading contribution from commit %s", commit.name()));
@@ -189,25 +191,30 @@ public class GitContributionService implements ContributionService {
 
 				debug(() -> String.format("Found %s diff entries for commit %s", diff.size(), commit.name()));
 
-				Stream<Contribution> contributions = diff.stream().map(diffEntry -> toContribution(diffEntry, commit));
+				ContributionId id = ContributionId.of(commit.name());
+				Contributor contributor = Contributor.of(commit.getCommitterIdent().getName());
+				Instant commitTime = Instant.ofEpochSecond(commit.getCommitTime());
+				String message = commit.getFullMessage();
 
-				return contributions.filter(Objects::nonNull);
+				Stream<ContributionItem> contributionItems = diff.stream()
+						.map(diffEntry -> toContributionItem(diffEntry, contributor, commitTime));
+
+				Builder contributionBuilder = DefaultContribution.newBuilder(id, project, contributor, commitTime).setMessage(message);
+				
+				contributionItems.filter(Objects::nonNull).forEach(contributionBuilder::addContributionItem);
+				
+				return contributionBuilder.build();
 			} catch (GitAPIException e) {
 				String msg = "Could not retrieve contributions for commit " + commit.toString();
 				throw new ContributionRetrievalException(msg, e);
 			}
 		}
 
-		private Contribution toContribution(DiffEntry entry, RevCommit commit) {
+		private ContributionItem toContributionItem(DiffEntry entry, Contributor contributor, Instant commitTime) {
 			AbbreviatedObjectId oldId = entry.getOldId();
 			AbbreviatedObjectId newId = entry.getNewId();
 
 			try {
-
-				ContributionId id = ContributionId.of(newId.name());
-				Contributor contributor = Contributor.of(commit.getCommitterIdent().getName());
-				Instant commitTime = Instant.ofEpochSecond(commit.getCommitTime());
-				String message = commit.getFullMessage();
 				String path = entry.getNewPath();
 
 				String newContent = "";
@@ -223,6 +230,7 @@ public class GitContributionService implements ContributionService {
 					RawText rawText = new RawText(newBytes);
 					newContent = rawText.getString(0, rawText.size(), false);
 				}
+
 				if (!oldId.name().equals(EMPTY)) {
 					ObjectLoader oldLoader = repository.open(oldId.toObjectId());
 					byte[] oldBytes = oldLoader.getBytes();
@@ -237,18 +245,12 @@ public class GitContributionService implements ContributionService {
 				trace(() -> String.format("Reading contribution from user %s at %s of %s", contributor.getName(),
 						commitTime, path));
 
-				return new DefaultContribution(id, project, contributor, commitTime, message, path, newContent,
-						oldContent);
+				return ContributionItem.of(path, oldContent, newContent);
 			} catch (Exception e) {
 				log.error("Error reading diff entry", e);
 				return null;
 			}
 
-		}
-
-		private void logSkipOfContribution(Contributor contributor, Instant commitTime, String path) {
-			debug(() -> String.format("Skipping contribution from user %s at %s of %s as it is not text based.",
-					contributor.getName(), commitTime, path));
 		}
 
 		private static AbstractTreeIterator prepareTreeParser(Repository repository, String objectId) {
@@ -296,6 +298,11 @@ public class GitContributionService implements ContributionService {
 				info(() -> String.format("Finished %s out of %s commits - (%.2f%%)", finishedCommits, totalCommits,
 						percentage * 100));
 			}
+		}
+
+		private void logSkipOfContribution(Contributor contributor, Instant commitTime, String path) {
+			debug(() -> String.format("Skipping contribution from user %s at %s of %s as it is not text based.",
+					contributor.getName(), commitTime, path));
 		}
 
 	}

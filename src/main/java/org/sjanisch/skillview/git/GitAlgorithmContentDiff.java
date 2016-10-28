@@ -21,7 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
-package org.sjanisch.skillview.diff.impl.git;
+package org.sjanisch.skillview.git;
 
 import java.util.Collection;
 import java.util.LinkedList;
@@ -32,8 +32,8 @@ import org.eclipse.jgit.diff.Edit;
 import org.eclipse.jgit.diff.EditList;
 import org.eclipse.jgit.diff.RawText;
 import org.eclipse.jgit.diff.RawTextComparator;
-import org.sjanisch.skillview.diff.api.ContentDiff;
-import org.sjanisch.skillview.utility.Lazy;
+import org.sjanisch.skillview.core.diff.api.ContentDiff;
+import org.sjanisch.skillview.core.utility.Lazy;
 
 /**
  * Implements using {@link DiffAlgorithm} using

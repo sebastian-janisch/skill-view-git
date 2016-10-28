@@ -11,7 +11,7 @@
 
 		<dependency>
 			<groupId>org.sjanisch</groupId>
-			<artifactId>skill-view-api</artifactId>
+			<artifactId>skill-view-core</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
 

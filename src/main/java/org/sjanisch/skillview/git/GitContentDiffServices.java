@@ -21,16 +21,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
-package org.sjanisch.skillview.diff.impl.git;
+package org.sjanisch.skillview.git;
 
-import static org.sjanisch.skillview.utility.ExceptionWrappers.unchecked;
+import static org.sjanisch.skillview.core.utility.ExceptionWrappers.unchecked;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
 import org.eclipse.jgit.diff.DiffAlgorithm;
 import org.eclipse.jgit.diff.DiffAlgorithm.SupportedAlgorithm;
-import org.sjanisch.skillview.diff.api.ContentDiffService;
+import org.sjanisch.skillview.core.diff.api.ContentDiffService;
 
 /**
  * Various implementations of {@link ContentDiffService}.

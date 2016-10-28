@@ -21,7 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  */
-package org.sjanisch.skillview.contribution.impl.git;
+package org.sjanisch.skillview.git;
 
 import java.nio.ByteBuffer;
 import java.time.Instant;
@@ -49,13 +49,13 @@ import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.AbstractTreeIterator;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
-import org.sjanisch.skillview.contribution.api.Contribution;
-import org.sjanisch.skillview.contribution.api.ContributionId;
-import org.sjanisch.skillview.contribution.api.ContributionRetrievalException;
-import org.sjanisch.skillview.contribution.api.ContributionService;
-import org.sjanisch.skillview.contribution.api.Contributor;
-import org.sjanisch.skillview.contribution.api.Project;
-import org.sjanisch.skillview.contribution.impl.DefaultContribution;
+import org.sjanisch.skillview.core.contribution.api.Contribution;
+import org.sjanisch.skillview.core.contribution.api.ContributionId;
+import org.sjanisch.skillview.core.contribution.api.ContributionRetrievalException;
+import org.sjanisch.skillview.core.contribution.api.ContributionService;
+import org.sjanisch.skillview.core.contribution.api.Contributor;
+import org.sjanisch.skillview.core.contribution.api.Project;
+import org.sjanisch.skillview.core.contribution.impl.DefaultContribution;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

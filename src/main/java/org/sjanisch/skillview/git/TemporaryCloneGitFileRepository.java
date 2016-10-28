@@ -1,6 +1,6 @@
-package org.sjanisch.skillview.contribution.impl.git;
+package org.sjanisch.skillview.git;
 
-import static org.sjanisch.skillview.utility.ExceptionWrappers.unchecked;
+import static org.sjanisch.skillview.core.utility.ExceptionWrappers.unchecked;
 
 import java.io.File;
 import java.io.IOException;

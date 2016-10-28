@@ -23,11 +23,6 @@ SOFTWARE.
  */
 package org.sjanisch.skillview.git;
 
-import static org.sjanisch.skillview.core.utility.ExceptionWrappers.unchecked;
-
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-
 import org.eclipse.jgit.diff.DiffAlgorithm;
 import org.eclipse.jgit.diff.DiffAlgorithm.SupportedAlgorithm;
 import org.sjanisch.skillview.core.diff.api.ContentDiffService;
@@ -41,8 +36,6 @@ import org.sjanisch.skillview.core.diff.api.ContentDiffService;
  *
  */
 public class GitContentDiffServices {
-
-	private static final Charset CHARSET = Charset.forName("UTF-8");
 
 	/**
 	 * Applies the git {@link SupportedAlgorithm#HISTOGRAM histogram} algorithm.
@@ -60,15 +53,9 @@ public class GitContentDiffServices {
 
 	private static ContentDiffService createService(SupportedAlgorithm diffAlgorithm) {
 		return (previous, current) -> {
-			String previousAsString = toString(previous);
-			String currentAsString = toString(current);
 			DiffAlgorithm algorithm = DiffAlgorithm.getAlgorithm(diffAlgorithm);
-			return new GitAlgorithmContentDiff(previousAsString, currentAsString, algorithm);
+			return new GitAlgorithmContentDiff(previous, current, algorithm);
 		};
-	}
-
-	private static String toString(ByteBuffer buffer) {
-		return unchecked(() -> CHARSET.newDecoder().decode(buffer)).toString();
 	}
 
 }

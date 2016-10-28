@@ -23,7 +23,6 @@ SOFTWARE.
  */
 package org.sjanisch.skillview.git;
 
-import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -38,6 +37,7 @@ import java.util.stream.StreamSupport;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.DiffEntry;
+import org.eclipse.jgit.diff.RawText;
 import org.eclipse.jgit.lib.AbbreviatedObjectId;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectLoader;
@@ -203,23 +203,36 @@ public class GitContributionService implements ContributionService {
 			AbbreviatedObjectId newId = entry.getNewId();
 
 			try {
-				ByteBuffer newContent = ByteBuffer.wrap("".getBytes());
-				ByteBuffer oldContent = null;
-
-				if (!newId.name().equals(EMPTY)) {
-					ObjectLoader newLoader = repository.open(newId.toObjectId());
-					newContent = ByteBuffer.wrap(newLoader.getBytes());
-				}
-				if (!oldId.name().equals(EMPTY)) {
-					ObjectLoader oldLoader = repository.open(oldId.toObjectId());
-					oldContent = ByteBuffer.wrap(oldLoader.getBytes());
-				}
 
 				ContributionId id = ContributionId.of(newId.name());
 				Contributor contributor = Contributor.of(commit.getCommitterIdent().getName());
 				Instant commitTime = Instant.ofEpochSecond(commit.getCommitTime());
 				String message = commit.getFullMessage();
 				String path = entry.getNewPath();
+
+				String newContent = "";
+				String oldContent = "";
+
+				if (!newId.name().equals(EMPTY)) {
+					ObjectLoader newLoader = repository.open(newId.toObjectId());
+					byte[] newBytes = newLoader.getBytes();
+					if (RawText.isBinary(newBytes)) {
+						logSkipOfContribution(contributor, commitTime, path);
+						return null;
+					}
+					RawText rawText = new RawText(newBytes);
+					newContent = rawText.getString(0, rawText.size(), false);
+				}
+				if (!oldId.name().equals(EMPTY)) {
+					ObjectLoader oldLoader = repository.open(oldId.toObjectId());
+					byte[] oldBytes = oldLoader.getBytes();
+					if (RawText.isBinary(oldBytes)) {
+						logSkipOfContribution(contributor, commitTime, path);
+						return null;
+					}
+					RawText rawText = new RawText(oldBytes);
+					oldContent = rawText.getString(0, rawText.size(), false);
+				}
 
 				trace(() -> String.format("Reading contribution from user %s at %s of %s", contributor.getName(),
 						commitTime, path));
@@ -231,6 +244,11 @@ public class GitContributionService implements ContributionService {
 				return null;
 			}
 
+		}
+
+		private void logSkipOfContribution(Contributor contributor, Instant commitTime, String path) {
+			debug(() -> String.format("Skipping contribution from user %s at %s of %s as it is not text based.",
+					contributor.getName(), commitTime, path));
 		}
 
 		private static AbstractTreeIterator prepareTreeParser(Repository repository, String objectId) {

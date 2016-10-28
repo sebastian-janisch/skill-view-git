@@ -166,10 +166,9 @@ public class GitContributionService implements ContributionService {
 					AbstractTreeIterator oldTreeParser = prepareTreeParser(repository, oldCommit.getName());
 					AbstractTreeIterator newTreeParser = prepareTreeParser(repository, newCommit.getName());
 
-					Contribution contribution = readContributionFromCommit(newCommit, newTreeParser,
-							oldTreeParser);
+					Contribution contribution = readContributionFromCommit(newCommit, newTreeParser, oldTreeParser);
 
-					logCommitProgress(commitsList.size(), finishedCommits.incrementAndGet());
+					logCommitProgress(commitsList.size() - 1, finishedCommits.incrementAndGet());
 
 					return contribution;
 				});
@@ -199,10 +198,11 @@ public class GitContributionService implements ContributionService {
 				Stream<ContributionItem> contributionItems = diff.stream()
 						.map(diffEntry -> toContributionItem(diffEntry, contributor, commitTime));
 
-				Builder contributionBuilder = DefaultContribution.newBuilder(id, project, contributor, commitTime).setMessage(message);
-				
+				Builder contributionBuilder = DefaultContribution.newBuilder(id, project, contributor, commitTime)
+						.setMessage(message);
+
 				contributionItems.filter(Objects::nonNull).forEach(contributionBuilder::addContributionItem);
-				
+
 				return contributionBuilder.build();
 			} catch (GitAPIException e) {
 				String msg = "Could not retrieve contributions for commit " + commit.toString();

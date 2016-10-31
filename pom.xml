@@ -7,6 +7,21 @@
 	<name>Skill View Git</name>
 	<description>Implementation of Skill-View Core against org.eclipse.jgit</description>
 
+	<repositories>
+	
+		<repository>
+			<id>dependency-snapshots-repo</id>
+			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</repository>
+		
+	</repositories>
+
 	<dependencies>
 
 		<dependency>

@@ -5,7 +5,7 @@
 	<artifactId>skill-view-git</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>Skill View Git</name>
-	<description>Implementation of the Skill-View API against org.eclipse.jgit</description>
+	<description>Implementation of Skill-View Core against org.eclipse.jgit</description>
 
 	<dependencies>
 

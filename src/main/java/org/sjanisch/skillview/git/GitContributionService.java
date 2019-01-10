@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -73,8 +74,10 @@ public class GitContributionService implements ContributionService {
 
 	private static final String EMPTY = "0000000000000000000000000000000000000000";
 
-	private Supplier<Repository> repositorySupplier;
-	private Project project;
+	private final Supplier<Repository> repositorySupplier;
+	private final Project project;
+	private final Predicate<String> pathFilter;
+	
 
 	/**
 	 * 
@@ -86,8 +89,24 @@ public class GitContributionService implements ContributionService {
 	 *            {@code null}.
 	 */
 	public GitContributionService(Supplier<Repository> repositorySupplier, Project project) {
+		this(repositorySupplier, project, t -> true);
+	}
+	
+	/**
+	 * 
+	 *            supplier for fresh repository instances. Must not be
+	 *            {@code null}.
+	 * @param project
+	 *            the project that this repository relates to. Must not be
+	 *            {@code null}.
+	 * @param pathFilter
+	 *            predicate to exclude/include paths into contributions. Can be
+	 *            {@code null}.
+	 */
+	public GitContributionService(Supplier<Repository> repositorySupplier, Project project, Predicate<String> pathFilter) {
 		this.repositorySupplier = Objects.requireNonNull(repositorySupplier, "repositorySupplier");
 		this.project = Objects.requireNonNull(project, "project");
+		this.pathFilter = pathFilter == null ? t -> true : pathFilter;
 	}
 
 	@Override
@@ -99,7 +118,7 @@ public class GitContributionService implements ContributionService {
 		Runnable closeRepository = () -> repository.close();
 		try (Git git = new Git(repository)) {
 			try {
-				Helper helper = new Helper(repository, project, git, startExclusive, endInclusive);
+				Helper helper = new Helper(repository, project, git, startExclusive, endInclusive, pathFilter);
 				Stream<Contribution> contributions = helper.readContributions().onClose(closeRepository);
 				return contributions;
 			} catch (Exception e) {
@@ -117,13 +136,15 @@ public class GitContributionService implements ContributionService {
 		private final Git git;
 		private final Instant startExclusive;
 		private final Instant endInclusive;
+		private final Predicate<String> pathFilter;
 
-		public Helper(Repository repository, Project project, Git git, Instant startExclusive, Instant endInclusive) {
+		public Helper(Repository repository, Project project, Git git, Instant startExclusive, Instant endInclusive, Predicate<String> pathFilter) {
 			this.repository = repository;
 			this.project = project;
 			this.git = git;
 			this.startExclusive = startExclusive;
 			this.endInclusive = endInclusive;
+			this.pathFilter = pathFilter;
 		}
 
 		private Stream<Contribution> readContributions() throws Exception {
@@ -198,6 +219,13 @@ public class GitContributionService implements ContributionService {
 				String message = commit.getFullMessage();
 
 				Stream<ContributionItem> contributionItems = diff.stream()
+						.filter(diffEntry -> {
+							boolean keep = pathFilter.test(diffEntry.getNewPath());
+							if(!keep) {
+								trace(() -> String.format("Skipping path %s", diffEntry.getNewPath()));
+							}
+							return keep;
+						})
 						.map(diffEntry -> toContributionItem(diffEntry, contributor, commitTime));
 
 				Builder contributionBuilder = DefaultContribution.newBuilder(id, project, contributor, commitTime)

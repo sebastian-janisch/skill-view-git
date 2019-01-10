@@ -191,7 +191,9 @@ public class GitContributionService implements ContributionService {
 				debug(() -> String.format("Found %s diff entries for commit %s", diff.size(), commit.name()));
 
 				ContributionId id = ContributionId.of(commit.name());
-				Contributor contributor = Contributor.of(commit.getCommitterIdent().getName());
+				String name = commit.getCommitterIdent().getName();
+				String email = commit.getCommitterIdent().getEmailAddress();
+				Contributor contributor = Contributor.of(name, email);
 				Instant commitTime = Instant.ofEpochSecond(commit.getCommitTime());
 				String message = commit.getFullMessage();
 

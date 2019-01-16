@@ -40,7 +40,6 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.RawText;
 import org.eclipse.jgit.lib.AbbreviatedObjectId;
-import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectLoader;
 import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.Ref;
@@ -50,6 +49,7 @@ import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.AbstractTreeIterator;
 import org.eclipse.jgit.treewalk.CanonicalTreeParser;
+import org.eclipse.jgit.treewalk.EmptyTreeIterator;
 import org.sjanisch.skillview.core.contribution.api.Contribution;
 import org.sjanisch.skillview.core.contribution.api.ContributionId;
 import org.sjanisch.skillview.core.contribution.api.ContributionItem;
@@ -77,7 +77,6 @@ public class GitContributionService implements ContributionService {
 	private final Supplier<Repository> repositorySupplier;
 	private final Project project;
 	private final Predicate<String> pathFilter;
-	
 
 	/**
 	 * 
@@ -91,11 +90,11 @@ public class GitContributionService implements ContributionService {
 	public GitContributionService(Supplier<Repository> repositorySupplier, Project project) {
 		this(repositorySupplier, project, t -> true);
 	}
-	
+
 	/**
 	 * 
-	 *            supplier for fresh repository instances. Must not be
-	 *            {@code null}.
+	 * supplier for fresh repository instances. Must not be {@code null}.
+	 * 
 	 * @param project
 	 *            the project that this repository relates to. Must not be
 	 *            {@code null}.
@@ -103,7 +102,8 @@ public class GitContributionService implements ContributionService {
 	 *            predicate to exclude/include paths into contributions. Can be
 	 *            {@code null}.
 	 */
-	public GitContributionService(Supplier<Repository> repositorySupplier, Project project, Predicate<String> pathFilter) {
+	public GitContributionService(Supplier<Repository> repositorySupplier, Project project,
+			Predicate<String> pathFilter) {
 		this.repositorySupplier = Objects.requireNonNull(repositorySupplier, "repositorySupplier");
 		this.project = Objects.requireNonNull(project, "project");
 		this.pathFilter = pathFilter == null ? t -> true : pathFilter;
@@ -138,7 +138,8 @@ public class GitContributionService implements ContributionService {
 		private final Instant endInclusive;
 		private final Predicate<String> pathFilter;
 
-		public Helper(Repository repository, Project project, Git git, Instant startExclusive, Instant endInclusive, Predicate<String> pathFilter) {
+		public Helper(Repository repository, Project project, Git git, Instant startExclusive, Instant endInclusive,
+				Predicate<String> pathFilter) {
 			this.repository = repository;
 			this.project = project;
 			this.git = git;
@@ -153,9 +154,8 @@ public class GitContributionService implements ContributionService {
 			List<Ref> branches = git.branchList().call();
 
 			// @formatter:off
-			Stream<Contribution> contributions = branches.stream()
-				.map(branch -> readContributionsFromBranch(branch))
-				.flatMap(Function.identity());
+			Stream<Contribution> contributions = branches.stream().map(branch -> readContributionsFromBranch(branch))
+					.flatMap(Function.identity());
 			// @formatter:on
 
 			return contributions;
@@ -180,14 +180,13 @@ public class GitContributionService implements ContributionService {
 
 				AtomicInteger finishedCommits = new AtomicInteger(0);
 
-				Stream<Contribution> result = IntStream.range(0, commitsList.size() - 1).mapToObj(i -> {
-					RevCommit oldCommit = commitsList.get(i + 1);
-					RevCommit newCommit = commitsList.get(i);
+				Stream<Contribution> result = IntStream.range(0, commitsList.size()).mapToObj(i -> {
+					RevCommit commit = commitsList.get(i);
 
-					AbstractTreeIterator oldTreeParser = prepareTreeParser(repository, oldCommit.getName());
-					AbstractTreeIterator newTreeParser = prepareTreeParser(repository, newCommit.getName());
+					AbstractTreeIterator oldTreeParser = prepareTreeParser(repository, commit.getName() + "~1");
+					AbstractTreeIterator newTreeParser = prepareTreeParser(repository, commit.getName());
 
-					Contribution contribution = readContributionFromCommit(newCommit, newTreeParser, oldTreeParser);
+					Contribution contribution = readContributionFromCommit(commit, newTreeParser, oldTreeParser);
 
 					logCommitProgress(commitsList.size() - 1, finishedCommits.incrementAndGet());
 
@@ -218,15 +217,13 @@ public class GitContributionService implements ContributionService {
 				Instant commitTime = Instant.ofEpochSecond(commit.getCommitTime());
 				String message = commit.getFullMessage();
 
-				Stream<ContributionItem> contributionItems = diff.stream()
-						.filter(diffEntry -> {
-							boolean keep = pathFilter.test(diffEntry.getNewPath());
-							if(!keep) {
-								trace(() -> String.format("Skipping path %s", diffEntry.getNewPath()));
-							}
-							return keep;
-						})
-						.map(diffEntry -> toContributionItem(diffEntry, contributor, commitTime));
+				Stream<ContributionItem> contributionItems = diff.stream().filter(diffEntry -> {
+					boolean keep = pathFilter.test(diffEntry.getNewPath());
+					if (!keep) {
+						trace(() -> String.format("Skipping path %s", diffEntry.getNewPath()));
+					}
+					return keep;
+				}).map(diffEntry -> toContributionItem(diffEntry, contributor, commitTime));
 
 				Builder contributionBuilder = DefaultContribution.newBuilder(id, project, contributor, commitTime)
 						.setMessage(message);
@@ -286,7 +283,17 @@ public class GitContributionService implements ContributionService {
 		private static AbstractTreeIterator prepareTreeParser(Repository repository, String objectId) {
 			try (RevWalk walk = new RevWalk(repository)) {
 				try {
-					RevCommit commit = walk.parseCommit(ObjectId.fromString(objectId));
+					RevCommit commit;
+					if (objectId.endsWith("~1")) {
+						try {
+							commit = walk.parseCommit(repository.resolve(objectId));
+						} catch (Exception e) {
+							return new EmptyTreeIterator();
+						}
+					} else {
+						commit = walk.parseCommit(repository.resolve(objectId));
+					}
+
 					RevTree tree = walk.parseTree(commit.getTree().getId());
 
 					CanonicalTreeParser treeParser = new CanonicalTreeParser();
